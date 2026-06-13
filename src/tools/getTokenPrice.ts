@@ -1,12 +1,19 @@
 import { z } from "zod";
-import { COINGECKO_IDS, PHRS_PRICE_ESTIMATE_USD } from "../config/pharos.js";
+import { COINGECKO_IDS, PHRS_PRICE_ESTIMATE_USD, type Network } from "../config/pharos.js";
 import { ok, fail, type ToolResult } from "../utils/client.js";
 
 /** Input schema for get_token_price. */
 export const getTokenPriceSchema = {
   token: z.enum(["PHRS", "USDC", "USDT", "WETH"]).describe("Token symbol to price"),
   currency: z.enum(["USD"]).default("USD").describe("Quote currency (only USD supported)"),
+  network: z
+    .enum(["testnet", "mainnet"])
+    .optional()
+    .describe("Network to use: testnet (default) or mainnet"),
 };
+
+/** Native gas-token symbols that have no CoinGecko listing. */
+const NATIVE_SYMBOLS = new Set(["PHRS", "WPHRS", "PROS", "WPROS"]);
 
 /** Price lookup result shared with other tools. */
 export interface PriceQuote {
@@ -29,13 +36,13 @@ export interface PriceQuote {
 export async function fetchTokenPrice(token: string): Promise<PriceQuote> {
   const timestamp = new Date().toISOString();
 
-  if (token === "PHRS" || token === "WPHRS") {
+  if (NATIVE_SYMBOLS.has(token)) {
     return {
       token,
       price: PHRS_PRICE_ESTIMATE_USD,
       currency: "USD",
       source: "estimate",
-      note: "PHRS price not available on CoinGecko, using $0.10 as estimate",
+      note: `${token} price not available on CoinGecko, using $0.10 as estimate`,
       timestamp,
     };
   }
@@ -68,6 +75,7 @@ export async function fetchTokenPrice(token: string): Promise<PriceQuote> {
 export async function getTokenPrice(input: {
   token: "PHRS" | "USDC" | "USDT" | "WETH";
   currency?: "USD";
+  network?: Network;
 }): Promise<ToolResult> {
   try {
     const quote = await fetchTokenPrice(input.token);

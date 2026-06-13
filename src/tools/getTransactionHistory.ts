@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { formatUnits, isAddress } from "viem";
-import { EXPLORER_API_URL } from "../config/pharos.js";
+import { getNetworkConfig, type Network } from "../config/pharos.js";
 import { ok, fail, type ToolResult } from "../utils/client.js";
 
 /** Input schema for get_transaction_history. */
@@ -13,9 +13,14 @@ export const getTransactionHistorySchema = {
     .max(50)
     .default(10)
     .describe("Number of transactions to return (default 10, max 50)"),
+  network: z
+    .enum(["testnet", "mainnet"])
+    .optional()
+    .describe("Network to use: testnet (default) or mainnet"),
 };
 
-interface HistoryEntry {
+/** One normalized explorer transaction, shared with verify_payment_received. */
+export interface HistoryEntry {
   hash: string;
   from: string;
   to: string;
@@ -28,12 +33,14 @@ interface HistoryEntry {
 /**
  * Normalize one raw explorer transaction into the skill's history shape.
  * Handles both Etherscan-style (txlist) and Blockscout-style fields.
+ * @param tx Raw explorer transaction object
+ * @param decimals Decimals used to format the value (18 for native)
  */
-function normalizeTx(tx: Record<string, unknown>): HistoryEntry {
+function normalizeTx(tx: Record<string, unknown>, decimals = 18): HistoryEntry {
   const rawValue = String(tx.value ?? "0");
   let value = rawValue;
   try {
-    value = formatUnits(BigInt(rawValue), 18);
+    value = formatUnits(BigInt(rawValue), decimals);
   } catch {
     // keep raw string if it is not a plain integer
   }
@@ -50,10 +57,66 @@ function normalizeTx(tx: Record<string, unknown>): HistoryEntry {
     from: String(tx.from ?? ""),
     to: String(tx.to ?? ""),
     value,
-    token: "PHRS",
+    token: typeof tx.tokenSymbol === "string" && tx.tokenSymbol ? tx.tokenSymbol : "PHRS",
     timestamp,
     status: isError === "1" || txStatus === "0" ? "failed" : "success",
   };
+}
+
+/**
+ * Query the PharosScan explorer API (Etherscan-compatible) for recent
+ * transactions of an address. Exported so verify_payment_received can
+ * reuse it.
+ * @param address Wallet address
+ * @param limit Max results (1-50)
+ * @param action Explorer action: "txlist" for native txs, "tokentx" for
+ *   ERC20 transfers
+ * @param contractAddress Optional token contract filter for "tokentx"
+ * @returns Normalized transaction entries, newest first
+ * @throws On invalid address, HTTP error, or non-JSON (bot protected) response
+ */
+export async function fetchExplorerTxs(
+  address: string,
+  limit: number,
+  action: "txlist" | "tokentx" = "txlist",
+  contractAddress?: string,
+  network?: Network
+): Promise<HistoryEntry[]> {
+  if (!isAddress(address)) {
+    throw new Error(`Invalid address: ${address}`);
+  }
+  const capped = Math.min(Math.max(limit, 1), 50);
+  const config = getNetworkConfig(network);
+
+  let url = `${config.explorerApi}?module=account&action=${action}&address=${address}&sort=desc&page=1&offset=${capped}`;
+  if (contractAddress) {
+    url += `&contractaddress=${contractAddress}`;
+  }
+  const res = await fetch(url, { headers: { accept: "application/json" } });
+  if (!res.ok) {
+    throw new Error(`Explorer API request failed with status ${res.status}`);
+  }
+
+  const text = await res.text();
+  let json: { status?: string; message?: string; result?: unknown };
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(
+      `Explorer API returned a non-JSON response (it may be behind bot protection right now). Try again later or check the address directly at ${config.explorer}`
+    );
+  }
+
+  if (!Array.isArray(json.result)) {
+    throw new Error(
+      `Explorer API returned no transaction list: ${json.message ?? "unknown response"}`
+    );
+  }
+
+  return (json.result as Record<string, unknown>[]).slice(0, capped).map((tx) => {
+    const tokenDecimal = Number(tx.tokenDecimal);
+    return normalizeTx(tx, Number.isFinite(tokenDecimal) && tokenDecimal > 0 ? tokenDecimal : 18);
+  });
 }
 
 /**
@@ -67,41 +130,19 @@ function normalizeTx(tx: Record<string, unknown>): HistoryEntry {
 export async function getTransactionHistory(input: {
   address: string;
   limit?: number;
+  network?: Network;
 }): Promise<ToolResult> {
   try {
-    if (!isAddress(input.address)) {
-      return fail(`Invalid address: ${input.address}`);
-    }
-    const limit = Math.min(Math.max(input.limit ?? 10, 1), 50);
-
-    const url = `${EXPLORER_API_URL}?module=account&action=txlist&address=${input.address}&sort=desc&page=1&offset=${limit}`;
-    const res = await fetch(url, { headers: { accept: "application/json" } });
-    if (!res.ok) {
-      return fail(`Explorer API request failed with status ${res.status}`);
-    }
-
-    const text = await res.text();
-    let json: { status?: string; message?: string; result?: unknown };
-    try {
-      json = JSON.parse(text);
-    } catch {
-      return fail(
-        "Explorer API returned a non-JSON response (it may be behind bot protection right now). Try again later or check the address directly at https://atlantic.pharosscan.xyz"
-      );
-    }
-
-    if (!Array.isArray(json.result)) {
-      return fail(
-        `Explorer API returned no transaction list: ${json.message ?? "unknown response"}`
-      );
-    }
-
-    const transactions = (json.result as Record<string, unknown>[])
-      .slice(0, limit)
-      .map(normalizeTx);
-
+    const transactions = await fetchExplorerTxs(
+      input.address,
+      input.limit ?? 10,
+      "txlist",
+      undefined,
+      input.network
+    );
     return ok({
       address: input.address,
+      network: getNetworkConfig(input.network).networkName,
       count: transactions.length,
       transactions,
     });

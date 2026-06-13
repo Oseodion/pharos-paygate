@@ -9,23 +9,27 @@ import {
   type Transport,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { pharosAtlantic, RPC_URL } from "../config/pharos.js";
+import { getNetworkConfig, resolveNetwork, type Network } from "../config/pharos.js";
 
-let publicClient: PublicClient | undefined;
-let walletClient: (WalletClient<Transport, Chain, Account>) | undefined;
+const publicClients = new Map<Network, PublicClient>();
+const walletClients = new Map<Network, WalletClient<Transport, Chain, Account>>();
 
 /**
- * Get (or lazily create) the shared viem public client for reads.
- * @returns A viem PublicClient connected to Pharos Atlantic
+ * Get (or lazily create) the shared viem public client for reads on the
+ * given network. Clients are cached per network; omitting the network
+ * keeps the original testnet default behavior.
+ * @param network Optional network ("testnet" | "mainnet")
+ * @returns A viem PublicClient connected to the resolved network
  */
-export function getPublicClient(): PublicClient {
-  if (!publicClient) {
-    publicClient = createPublicClient({
-      chain: pharosAtlantic,
-      transport: http(RPC_URL),
-    });
+export function getPublicClient(network?: Network): PublicClient {
+  const resolved = resolveNetwork(network);
+  let client = publicClients.get(resolved);
+  if (!client) {
+    const { chain, rpcUrl } = getNetworkConfig(resolved);
+    client = createPublicClient({ chain, transport: http(rpcUrl) });
+    publicClients.set(resolved, client);
   }
-  return publicClient;
+  return client;
 }
 
 /**
@@ -46,19 +50,26 @@ export function getAccount(): Account {
 
 /**
  * Get (or lazily create) the shared viem wallet client for sending
- * transactions, signed with the PRIVATE_KEY from the environment.
+ * transactions on the given network, signed with the PRIVATE_KEY from
+ * the environment. Clients are cached per network; omitting the network
+ * keeps the original testnet default behavior.
+ * @param network Optional network ("testnet" | "mainnet")
  * @throws If PRIVATE_KEY is missing or malformed
- * @returns A viem WalletClient connected to Pharos Atlantic
+ * @returns A viem WalletClient connected to the resolved network
  */
-export function getWalletClient(): WalletClient<Transport, Chain, Account> {
-  if (!walletClient) {
-    walletClient = createWalletClient({
+export function getWalletClient(network?: Network): WalletClient<Transport, Chain, Account> {
+  const resolved = resolveNetwork(network);
+  let client = walletClients.get(resolved);
+  if (!client) {
+    const { chain, rpcUrl } = getNetworkConfig(resolved);
+    client = createWalletClient({
       account: getAccount(),
-      chain: pharosAtlantic,
-      transport: http(RPC_URL),
+      chain,
+      transport: http(rpcUrl),
     });
+    walletClients.set(resolved, client);
   }
-  return walletClient;
+  return client;
 }
 
 /** Standard result envelope returned by every tool. */

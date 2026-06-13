@@ -7,7 +7,7 @@ import {
   type PaymentRequirements,
 } from "@x402/fetch";
 import { ExactEvmScheme, toClientEvmSigner } from "@x402/evm";
-import { CHAIN_ID } from "../config/pharos.js";
+import { getNetworkConfig, type Network } from "../config/pharos.js";
 import { getAccount, getPublicClient, ok, fail, type ToolResult } from "../utils/client.js";
 
 /** Input schema for x402_pay_for_resource. */
@@ -16,10 +16,11 @@ export const x402PayForResourceSchema = {
   max_price: z
     .string()
     .describe('Maximum USDC you are willing to pay, e.g. "0.01"'),
+  network: z
+    .enum(["testnet", "mainnet"])
+    .optional()
+    .describe("Network to use: testnet (default) or mainnet"),
 };
-
-/** CAIP-2 network identifier for Pharos Atlantic. */
-const PHAROS_NETWORK = `eip155:${CHAIN_ID}` as const;
 
 /** USDC-style decimals used to interpret max_price. */
 const PRICE_DECIMALS = 6;
@@ -68,12 +69,14 @@ async function readBody(res: Response): Promise<unknown> {
 export async function x402PayForResource(input: {
   url: string;
   max_price: string;
+  network?: Network;
 }): Promise<ToolResult> {
   try {
     const maxAtomic = parseUnits(input.max_price, PRICE_DECIMALS);
     if (maxAtomic <= 0n) {
       return fail(`Invalid max_price: ${input.max_price}`);
     }
+    const config = getNetworkConfig(input.network);
 
     // Step 1: initial request. If it is not a 402, no payment is needed.
     const initial = await fetch(input.url);
@@ -118,9 +121,9 @@ export async function x402PayForResource(input: {
     }
 
     // Step 4: sign and send the payment, then retry the request.
-    const signer = toClientEvmSigner(getAccount() as never, getPublicClient());
+    const signer = toClientEvmSigner(getAccount() as never, getPublicClient(input.network));
     const client = new x402Client()
-      .register(PHAROS_NETWORK, new ExactEvmScheme(signer))
+      .register(config.facilitatorNetwork, new ExactEvmScheme(signer))
       .registerPolicy((_version: number, reqs: PaymentRequirements[]) =>
         reqs.filter((r) => {
           try {
@@ -156,6 +159,7 @@ export async function x402PayForResource(input: {
 
     return ok({
       url: input.url,
+      network: config.networkName,
       paid: true,
       pricePaid: `${formatUnits(cheapest, PRICE_DECIMALS)} USDC`,
       maxPrice: `${input.max_price} USDC`,

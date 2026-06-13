@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { transferToken } from "./sendToken.js";
 import { fetchTokenPrice } from "./getTokenPrice.js";
+import { type Network } from "../config/pharos.js";
 import { ok, fail, type ToolResult } from "../utils/client.js";
 
 /** Input schema for conditional_payment. */
@@ -17,6 +18,10 @@ export const conditionalPaymentSchema = {
   condition_value: z
     .string()
     .describe('USD price threshold to compare against, e.g. "2000"'),
+  network: z
+    .enum(["testnet", "mainnet"])
+    .optional()
+    .describe("Network to use: testnet (default) or mainnet"),
 };
 
 const OPERATOR_LABELS: Record<string, string> = {
@@ -62,6 +67,7 @@ export async function conditionalPayment(input: {
   condition_token: "PHRS" | "USDC" | "USDT" | "WETH";
   condition_operator: "gt" | "lt" | "gte" | "lte";
   condition_value: string;
+  network?: Network;
 }): Promise<ToolResult> {
   try {
     const threshold = Number(input.condition_value);
@@ -84,7 +90,7 @@ export async function conditionalPayment(input: {
       });
     }
 
-    const result = await transferToken(input.token, input.to, input.amount);
+    const result = await transferToken(input.token, input.to, input.amount, input.network);
     return ok({
       executed: true,
       condition: conditionText,

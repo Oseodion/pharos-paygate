@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { transferToken } from "./sendToken.js";
+import { getNetworkConfig, type Network } from "../config/pharos.js";
 import { ok, fail, type ToolResult } from "../utils/client.js";
 
 /** Input schema for batch_send. */
@@ -17,6 +18,10 @@ export const batchSendSchema = {
     .min(1)
     .describe("List of recipients with address, amount, and token"),
   memo: z.string().optional().describe("Optional memo recorded in the response"),
+  network: z
+    .enum(["testnet", "mainnet"])
+    .optional()
+    .describe("Network to use: testnet (default) or mainnet"),
 };
 
 interface BatchEntryResult {
@@ -41,13 +46,19 @@ interface BatchEntryResult {
 export async function batchSend(input: {
   recipients: { address: string; amount: string; token: "USDC" | "USDT" | "WETH" | "WPHRS" }[];
   memo?: string;
+  network?: Network;
 }): Promise<ToolResult> {
   try {
     const results: BatchEntryResult[] = [];
 
     for (const recipient of input.recipients) {
       try {
-        const tx = await transferToken(recipient.token, recipient.address, recipient.amount);
+        const tx = await transferToken(
+          recipient.token,
+          recipient.address,
+          recipient.amount,
+          input.network
+        );
         results.push({
           address: recipient.address,
           amount: recipient.amount,
@@ -79,6 +90,7 @@ export async function batchSend(input: {
 
     return ok({
       memo: input.memo ?? null,
+      network: getNetworkConfig(input.network).networkName,
       results,
       summary: {
         total: results.length,

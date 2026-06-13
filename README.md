@@ -1,6 +1,24 @@
 # pharos-paygate
 
+## Quick look
+
+Here are four things you can say to an AI agent with pharos-paygate connected:
+
+"Check the balance of 0x1234..." - triggers get_wallet_balances, returns PHRS, USDC, USDT, WETH and WPHRS in one call
+"Send 5 USDC to 0x1234... if WETH is above 2000" - triggers conditional_payment, fetches live price, pays only if condition is met
+"Is 0x1234... safe to send money to?" - triggers check_wallet_safety, screens the address against GoPlus malicious address database
+"Fetch https://api.example.com/data and pay for it if it costs under 0.01 USDC" - triggers x402_pay_for_resource, handles the full 402 payment handshake autonomously
+
 pharos-paygate is an MCP (Model Context Protocol) server that gives AI agents a complete payments and security toolkit on Pharos, across both the Atlantic Testnet and the Pacific Mainnet. It exposes 20 tools covering everything an agent needs to move money safely: checking balances, fetching prices, sending USDC or any supported token, conditional and multi-condition payments, batch payouts, transaction history, gas estimation, paying for x402-protected web resources, GoPlus-powered wallet and contract screening, safety-gated transfers, payment requests and verification, native token wrapping, wallet intelligence profiles, and live network stats. Every tool takes an optional `network` parameter so an agent can work on testnet by default and switch to mainnet just by saying "on mainnet". Install it once in Claude Desktop, Cursor, or any MCP-compatible client and your agent can transact on Pharos with plain English.
+
+## Verified on-chain
+
+These transactions were executed live on Pharos Atlantic Testnet during development:
+
+USDC send: https://atlantic.pharosscan.xyz/tx/0x9d988fe11f13a560849ad0a331c9f3e5d7a5d834bf5169738c9990eb16b341db
+Conditional payment (WETH above 1000 USD): https://atlantic.pharosscan.xyz/tx/0xa3de353b01372f88ef94c71225e72bdb82cb7c1b37c6871ef69ebb13f6c0f742
+Safe transfer with GoPlus screening: https://atlantic.pharosscan.xyz/tx/0x312d2382f85505f1e95becc882cdd1ad13e986cc51f5f0318accf1ef3863facd
+Multi-condition payment (WETH above 1000 USD AND USDC above 0.99): https://atlantic.pharosscan.xyz/tx/0x6dbe8241552b291a8e6ba80d28f6d08594467743350866ddee4fd59e55017fcb
 
 ## Why this exists
 
@@ -174,7 +192,7 @@ Builds a full intelligence report on any wallet: all balances with USD values, t
 
 ### 19. get_network_stats
 
-Fetches live Pharos Atlantic Testnet stats straight from the RPC: current block, gas price, and the latest block's transaction count and timestamp.
+Fetches live Pharos network stats for testnet or mainnet straight from the RPC: current block, gas price, and the latest block's transaction count and timestamp.
 
 - Input: none
 - Output: `{network, chain_id, block_number, gas_price_gwei, last_block_tx_count, last_block_timestamp, rpc_url, explorer}`
@@ -194,8 +212,16 @@ The upgraded conditional payment. Takes a list of price conditions and combines 
 
 You need Node.js 18 or newer.
 
+The quickest way to get started:
+
 ```bash
-git clone https://github.com/your-username/pharos-paygate.git
+npm install -g pharos-paygate
+```
+
+For developers who want to contribute or inspect the source:
+
+```bash
+git clone https://github.com/Oseodion/pharos-paygate.git
 cd pharos-paygate
 npm install
 npm run build
@@ -228,14 +254,14 @@ Open your Claude Desktop config file:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Add this entry (adjust the path to wherever you cloned the repo):
+Replace /path/to/pharos-paygate with the absolute path to wherever you cloned or installed the package on your machine. On macOS you can find it by running: which pharos-paygate after npm install, or pwd inside the cloned folder.
 
 ```json
 {
   "mcpServers": {
     "pharos-paygate": {
       "command": "node",
-      "args": ["/absolute/path/to/pharos-paygate/dist/index.js"],
+      "args": ["/path/to/pharos-paygate/dist/index.js"],
       "env": {
         "PRIVATE_KEY": "your_wallet_private_key_here",
         "RPC_URL": "https://atlantic.dplabs-internal.com",
@@ -361,7 +387,7 @@ Reference implementation for Pharos: https://github.com/PharosNetwork/examples/t
 ```
 pharos-paygate/
   src/
-    index.ts                  MCP server entry point, registers all 9 tools
+    index.ts                  MCP server entry point, registers all 20 tools
     config/pharos.ts          chain definition, token addresses, ABIs
     utils/client.ts           viem public + wallet clients, result helpers
     tools/                    one file per tool

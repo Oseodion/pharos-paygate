@@ -395,6 +395,69 @@ pharos-paygate/
   .env.example                environment template
 ```
 
+## Troubleshooting
+
+### Permission denied on Mac when running npm install -g
+
+If you see EACCES permission denied on macOS, run with sudo:
+
+```bash
+sudo npm install -g pharos-paygate
+```
+
+Or fix npm permissions permanently so you never need sudo again:
+
+```bash
+mkdir ~/.npm-global
+npm config set prefix '~/.npm-global'
+echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.zshrc
+source ~/.zshrc
+npm install -g pharos-paygate
+```
+
+### Permission denied on Windows
+
+On Windows, open PowerShell or Command Prompt as Administrator:
+
+1. Press Windows key
+2. Search for PowerShell
+3. Right click and select Run as Administrator
+4. Then run: npm install -g pharos-paygate
+
+Or if you use nvm on Windows, permissions are handled automatically.
+
+### pharos-paygate command not found after install on Mac
+
+If the command is not found after installing, your PATH may not include the npm global bin folder. Run:
+
+```bash
+npm config get prefix
+```
+
+Then add that path plus /bin to your PATH in ~/.zshrc or ~/.bashrc and restart your terminal.
+
+### pharos-paygate command not found after install on Windows
+
+Close and reopen PowerShell or Command Prompt after installing. If still not found, run:
+
+```bash
+npm config get prefix
+```
+
+Add that path to your System Environment Variables under PATH.
+
+### Server starts but tools don't show in Claude Desktop
+
+Make sure you fully quit Claude Desktop and reopen it after editing the config file. On Mac press Command+Q, on Windows right click the taskbar icon and click Quit. Just closing the window is not enough.
+
+### Explorer API rate limit errors
+
+The PharosScan explorer API has rate limits. If get_transaction_history or verify_payment_received return a rate limit error, wait 30 seconds and try again.
+
+### Tools work but transactions fail with insufficient funds
+
+Make sure your wallet has PHRS on testnet or PROS on mainnet for gas fees. Get testnet PHRS from the faucet at https://testnet.pharosnetwork.xyz. Read-only tools like get_wallet_balances, get_token_price, check_wallet_safety, and get_network_stats work without any gas.
+
 ## Contributing
 
 Contributions are welcome. The codebase is small on purpose, so it is easy to find your way around.

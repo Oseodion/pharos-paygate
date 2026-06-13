@@ -1,6 +1,6 @@
 {
   "name": "pharos-paygate",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MCP skill that gives AI agents everything they need to handle payments on the Pharos blockchain",
   "type": "module",
   "main": "dist/index.js",

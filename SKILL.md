@@ -57,29 +57,47 @@ x402 is an open protocol that turns the long dormant HTTP 402 Payment Required s
 
 ## Quick Start
 
+Install from npm:
+
 ```bash
 npm install -g pharos-paygate
 ```
 
-Then add it to your Claude Desktop config at `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+Then add to your Claude Desktop config at `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+
+If installed via npm:
 
 ```json
 {
   "mcpServers": {
     "pharos-paygate": {
-      "command": "node",
-      "args": ["/path/to/pharos-paygate/dist/index.js"],
+      "command": "pharos-paygate",
       "env": {
         "PRIVATE_KEY": "your_wallet_private_key_here",
-        "RPC_URL": "https://atlantic.dplabs-internal.com",
-        "MAINNET_RPC_URL": "https://rpc.pharos.xyz",
-        "CHAIN_ID": "688689",
-        "NETWORK": "testnet",
-        "FACILITATOR_URL": "https://x402.org/facilitator"
+        "NETWORK": "testnet"
       }
     }
   }
 }
 ```
 
-Fully quit and reopen Claude Desktop, and the 20 tools show up under the pharos-paygate server.
+If you cloned the repo instead:
+
+```json
+{
+  "mcpServers": {
+    "pharos-paygate": {
+      "command": "node",
+      "args": ["/absolute/path/to/pharos-paygate/dist/index.js"],
+      "env": {
+        "PRIVATE_KEY": "your_wallet_private_key_here",
+        "NETWORK": "testnet"
+      }
+    }
+  }
+}
+```
+
+For other MCP clients (Cursor, Windsurf, Cline, Goose, Zed, Continue) use the same JSON block in each client's config file location. See the README for per-client paths.
+
+Fully quit and reopen your AI client after saving the config.

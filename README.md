@@ -254,32 +254,23 @@ Open your Claude Desktop config file:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Replace /path/to/pharos-paygate with the absolute path to wherever you cloned or installed the package on your machine. On macOS you can find it by running: which pharos-paygate after npm install, or pwd inside the cloned folder.
+**If you installed via npm (recommended for most users):**
 
 ```json
 {
   "mcpServers": {
     "pharos-paygate": {
-      "command": "node",
-      "args": ["/path/to/pharos-paygate/dist/index.js"],
+      "command": "pharos-paygate",
       "env": {
         "PRIVATE_KEY": "your_wallet_private_key_here",
-        "RPC_URL": "https://atlantic.dplabs-internal.com",
-        "MAINNET_RPC_URL": "https://rpc.pharos.xyz",
-        "CHAIN_ID": "688689",
-        "NETWORK": "testnet",
-        "FACILITATOR_URL": "https://x402.org/facilitator"
+        "NETWORK": "testnet"
       }
     }
   }
 }
 ```
 
-Restart Claude Desktop and the 20 tools will show up under the pharos-paygate server. Leave `NETWORK` as `testnet` for the default, or set it to `mainnet` to flip the default. Either way the agent can override per request with the `network` parameter.
-
-## Add to Cursor
-
-Create or edit `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json` globally):
+**If you cloned the repo (for developers):**
 
 ```json
 {
@@ -300,22 +291,63 @@ Create or edit `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json` globa
 }
 ```
 
+Note: PRIVATE_KEY is only needed for tools that send transactions. Read-only tools like get_wallet_balances, get_token_price, check_wallet_safety, and get_network_stats work without it. NETWORK defaults to testnet if not set.
+
+Restart Claude Desktop fully after editing the config (Command+Q on Mac, not just closing the window).
+
+## Add to Cursor
+
+Create or edit `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per project).
+
+If you installed via npm:
+
+```json
+{
+  "mcpServers": {
+    "pharos-paygate": {
+      "command": "pharos-paygate",
+      "env": {
+        "PRIVATE_KEY": "your_wallet_private_key_here",
+        "NETWORK": "testnet"
+      }
+    }
+  }
+}
+```
+
+If you cloned the repo:
+
+```json
+{
+  "mcpServers": {
+    "pharos-paygate": {
+      "command": "node",
+      "args": ["/absolute/path/to/pharos-paygate/dist/index.js"],
+      "env": {
+        "PRIVATE_KEY": "your_wallet_private_key_here",
+        "NETWORK": "testnet"
+      }
+    }
+  }
+}
+```
+
 Then enable the server in Cursor's MCP settings.
 
 ## Supported clients
 
 pharos-paygate is a standard stdio MCP server, so it works in any MCP-compatible client. The same `command` / `args` / `env` block shown above goes into each client's config file:
 
-| Client | Config location |
-|---|---|
-| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS), `%APPDATA%\Claude\claude_desktop_config.json` (Windows) |
-| Cursor | `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per project) |
-| Windsurf | `~/.windsurf/mcp.json` |
-| Cline (VSCode extension) | MCP servers settings inside VSCode |
-| Goose | `~/.config/goose/config.yaml` |
-| Zed | `~/.config/zed/settings.json` |
-| Continue | `~/.continue/config.json` |
-| Custom agent | Any agent built on `@modelcontextprotocol/sdk` can spawn `node dist/index.js` over stdio |
+| Client | Config location | Config format |
+|---|---|---|
+| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS), `%APPDATA%\Claude\claude_desktop_config.json` (Windows) | Same JSON block with `command: pharos-paygate` (npm) or `command: node` + args (repo clone) |
+| Cursor | `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per project) | Same JSON block with `command: pharos-paygate` (npm) or `command: node` + args (repo clone) |
+| Windsurf | `~/.windsurf/mcp.json` | Same JSON block with `command: pharos-paygate` (npm) or `command: node` + args (repo clone) |
+| Cline (VSCode extension) | MCP servers settings inside VSCode | Same JSON block with `command: pharos-paygate` (npm) or `command: node` + args (repo clone) |
+| Goose | `~/.config/goose/config.yaml` | Same JSON block with `command: pharos-paygate` (npm) or `command: node` + args (repo clone) |
+| Zed | `~/.config/zed/settings.json` | Same JSON block with `command: pharos-paygate` (npm) or `command: node` + args (repo clone) |
+| Continue | `~/.continue/config.json` | Same JSON block with `command: pharos-paygate` (npm) or `command: node` + args (repo clone) |
+| Custom agent | Any agent built on `@modelcontextprotocol/sdk` can spawn `node dist/index.js` over stdio | Same JSON block with `command: pharos-paygate` (npm) or `command: node` + args (repo clone) |
 
 ## Environment variables
 
@@ -391,7 +423,7 @@ pharos-paygate/
     config/pharos.ts          chain definition, token addresses, ABIs
     utils/client.ts           viem public + wallet clients, result helpers
     tools/                    one file per tool
-  CLAUDE.md                   working notes for AI coding agents
+  SKILL.md                    Pharos Skill Engine format capability index
   .env.example                environment template
 ```
 
